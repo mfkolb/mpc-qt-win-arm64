@@ -53,6 +53,17 @@ jobs:
       run: |
         chmod +x scripts/*.sh
         bash scripts/make-release-msys2.sh
+    - name: Diagnose startup crash
+      continue-on-error: true
+      run: |
+        cd mpc-qt-win-arm64
+        export QT_FORCE_STDERR_LOGGING=1
+        export QT_LOGGING_RULES="*.debug=true;qt.*.debug=false"
+        timeout 60 ./mpc-qt.exe > startup.log 2>&1
+        echo "=== exit code: $? ==="
+        cat startup.log
+        echo "=== mpv-only check ==="
+        ls -la libmpv-2.dll
     - name: Upload
       uses: actions/upload-artifact@v7
       with:
