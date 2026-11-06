@@ -1,131 +1,60 @@
-#!/usr/bin/bash
+name: Msys2 CI (ARM64)
 
-set -e
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 
-VERSION=""
-DEVBUILD="continuous"
-if [ -v FORCE_VERSION ]; then
-    if [[ $FORCE_VERSION == $DEVBUILD ]]; then
-        VERSION=`date +'%Y.%m.%d'`
-    else
-        VERSION=$FORCE_VERSION
-    fi
-else
-    # v23.02-74-g60b18fa -> 23.02.74
-    VERSION=`git describe --tags  | sed 's/[^0-9]*\([0-9]*\)[^0-9]*\([0-9]*\)[^0-9]*\([0-9]*\).*/\1.\2.\3/'`
-fi
+env:
+  DEVBUILD: continuous
+  MPCQT_SUFFIX: win-arm64
 
-# Make sure VERSION_WIN is in x.x.x.x format
-VERSION_WIN=$VERSION
-if [[ "$VERSION_WIN" =~ ^[0-9]+\.[0-9]+$ ]]; then
-    VERSION_WIN="${VERSION_WIN}.0"
-fi
-VERSION_WIN="${VERSION_WIN}.0"
+jobs:
+  build:
+    name: Build (Windows ARM64)
+    runs-on: windows-11-arm
+    defaults:
+      run:
+        shell: msys2 {0}
 
-BINDIR=bin
-BUILDDIR=build
-EXECUTABLE="$BINDIR/mpc-qt.exe"
-# MSYS2 sets MINGW_PREFIX for the active environment (/ucrt64 on x64, /clangarm64 on ARM64)
-MSYS_PREFIX="${MINGW_PREFIX:-/ucrt64}"
-MINGW_BINDIR="$MSYS_PREFIX/bin"
-SUFFIX="${MPCQT_SUFFIX:-win-x64}"
-DEST="mpc-qt-$SUFFIX"
-
-mkdir -p translations/qt
-cp $MSYS_PREFIX/share/qt6/translations/qtbase_*.qm translations/qt
-
-cmake -DMPCQT_VERSION=$VERSION -DMPCQT_VERSION_WIN=$VERSION_WIN -G Ninja -B build
-ninja -C build
-
-if [ ! -f "$EXECUTABLE" ]; then
-    echo Failed to find executable
-    exit 1
-fi
-
-echo Making directories
-mkdir -p "$DEST"
-mkdir -p "$DEST/doc"
-mkdir -p "$DEST/iconengines"
-mkdir -p "$DEST/imageformats"
-mkdir -p "$DEST/platforms"
-mkdir -p "$DEST/styles"
-
-echo Copying documents
-cp DOCS/ipc.md  "$DEST/doc"
-
-echo Copying plugins
-PLUGDIR=$MSYS_PREFIX/share/qt6/plugins
-cp "$PLUGDIR/iconengines/qsvgicon.dll"          "$DEST/iconengines"
-cp "$PLUGDIR/imageformats/qjpeg.dll"            "$DEST/imageformats"
-cp "$PLUGDIR/imageformats/qsvg.dll"             "$DEST/imageformats"
-cp "$PLUGDIR/platforms/qdirect2d.dll"           "$DEST/platforms"
-cp "$PLUGDIR/platforms/qminimal.dll"            "$DEST/platforms"
-cp "$PLUGDIR/platforms/qoffscreen.dll"          "$DEST/platforms"
-cp "$PLUGDIR/platforms/qwindows.dll"            "$DEST/platforms"
-cp "$PLUGDIR/styles/qmodernwindowsstyle.dll"    "$DEST/styles"
-
-
-# Use ldd to find dependencies and copy them
-echo Finding dependencies and copying them
-ldd "$EXECUTABLE" | awk '/=>/ {print $3}' | while read -r dll; do
-  if [[ -n "$dll" && -f "$dll" ]]; then
-    # Check if the DLL is in /ucrt64/bin before copying
-    if [[ "$dll" == "$MINGW_BINDIR"* ]]; then
-      echo "Copying $dll to $DEST"
-      cp -u "$dll" "$DEST"
-    else
-      echo "Skipping $dll (not in $MINGW_BINDIR)"
-    fi
-  fi
-done
-
-DLLS=("Qt6Core.dll" "Qt6Gui.dll" "Qt6Network.dll" "Qt6OpenGLWidgets.dll")
-
-for dll in "${DLLS[@]}"; do
-  echo " "
-  echo "Checking dependencies for $dll"
-  ldd "$MINGW_BINDIR/$dll" | awk '/=>/ {print $3}' | while read -r dep; do
-    if [[ -n "$dep" && -f "$dep" ]]; then
-      # Check if the DLL is in /ucrt64/bin before copying
-      if [[ "$dep" == "$MINGW_BINDIR"* ]]; then
-        echo "Copying $dep to $DEST"
-        cp -u "$dep" "$DEST"
-      else
-        echo "Skipping $dep (not in $MINGW_BINDIR)"
-      fi
-    fi
-  done
-done
-
-# Manually copy other dlls as needed
-echo "Copying other dlls to $DEST"
-cp $MINGW_BINDIR/libjpeg-*.dll                "$DEST"
-cp $MINGW_BINDIR/libcrypto-*.dll              "$DEST"
-cp $MINGW_BINDIR/vulkan-*.dll                 "$DEST"
-
-echo "All required DLLs from $MINGW_BINDIR have been copied to $DEST."
-
-echo Copying executable
-cp $EXECUTABLE "$DEST"
-
-echo Copying libmpv
-cp $MINGW_BINDIR/libmpv-2.dll "$DEST"
-
-echo Copying yt-dlp
-cp "yt-dlp.exe" "$DEST"
-
-echo Downloading QuickJS
-LATEST_QUICKJS_VERSION=$(curl -s https://bellard.org/quickjs/binary_releases/ | grep -oP 'quickjs-win-x86_64-\d{4}-\d{2}-\d{2}\.zip' | sort | tail -n 1)
-LATEST_QUICKJS_URL="https://bellard.org/quickjs/binary_releases/$LATEST_QUICKJS_VERSION"
-curl $LATEST_QUICKJS_URL -o quickjs-win-x86_64.zip
-echo Extracting QuickJS
-7z e quickjs-win-x86_64.zip
-echo Copying QuickJS
-cp "qjs.exe" "$DEST"
-
-if command -v makensis >/dev/null 2>&1; then
-    echo Creating NSIS installer
-    makensis "$BUILDDIR/mpc-qt.nsi"
-else
-    echo "makensis not found, skipping installer"
-fi
+    steps:
+    - name: Install packages
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: clangarm64
+        update: true
+        install: >-
+          git
+          base-devel
+          wget
+          p7zip
+          mingw-w64-clang-aarch64-cmake
+          mingw-w64-clang-aarch64-ninja
+          mingw-w64-clang-aarch64-toolchain
+          mingw-w64-clang-aarch64-qt6
+          mingw-w64-clang-aarch64-boost
+          mingw-w64-clang-aarch64-mpv
+          mingw-w64-clang-aarch64-vulkan-loader
+    - name: Avoid line ending issues on Windows
+      run: git config --global core.autocrlf input
+    - name: Download mpc-qt source
+      uses: actions/checkout@v6.0.2
+    - name: Download yt-dlp
+      uses: robinraju/release-downloader@v1.13
+      with:
+        repository: "yt-dlp/yt-dlp"
+        latest: true
+        fileName: "yt-dlp.exe"
+    - name: Set version
+      run: |
+        FORCE_VERSION=$( cat .github/actions/data/VERSION )
+        echo "FORCE_VERSION=$( echo $FORCE_VERSION )" >> $GITHUB_ENV
+    - name: Build
+      run: |
+        chmod +x scripts/*.sh
+        bash scripts/make-release-msys2.sh
+    - name: Upload
+      uses: actions/upload-artifact@v7
+      with:
+        name: "mpc-qt-win-arm64-${{ env.FORCE_VERSION }}"
+        path: mpc-qt-*/
