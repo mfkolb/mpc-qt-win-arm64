@@ -26,12 +26,14 @@ VERSION_WIN="${VERSION_WIN}.0"
 BINDIR=bin
 BUILDDIR=build
 EXECUTABLE="$BINDIR/mpc-qt.exe"
-MINGW_BINDIR="/ucrt64/bin"
-SUFFIX="win-x64"
+# MSYS2 sets MINGW_PREFIX for the active environment (/ucrt64 on x64, /clangarm64 on ARM64)
+MSYS_PREFIX="${MINGW_PREFIX:-/ucrt64}"
+MINGW_BINDIR="$MSYS_PREFIX/bin"
+SUFFIX="${MPCQT_SUFFIX:-win-x64}"
 DEST="mpc-qt-$SUFFIX"
 
 mkdir -p translations/qt
-cp /ucrt64/share/qt6/translations/qtbase_*.qm translations/qt
+cp $MSYS_PREFIX/share/qt6/translations/qtbase_*.qm translations/qt
 
 cmake -DMPCQT_VERSION=$VERSION -DMPCQT_VERSION_WIN=$VERSION_WIN -G Ninja -B build
 ninja -C build
@@ -53,7 +55,7 @@ echo Copying documents
 cp DOCS/ipc.md  "$DEST/doc"
 
 echo Copying plugins
-PLUGDIR=/ucrt64/share/qt6/plugins
+PLUGDIR=$MSYS_PREFIX/share/qt6/plugins
 cp "$PLUGDIR/iconengines/qsvgicon.dll"          "$DEST/iconengines"
 cp "$PLUGDIR/imageformats/qjpeg.dll"            "$DEST/imageformats"
 cp "$PLUGDIR/imageformats/qsvg.dll"             "$DEST/imageformats"
@@ -122,5 +124,9 @@ echo Extracting QuickJS
 echo Copying QuickJS
 cp "qjs.exe" "$DEST"
 
-echo Creating NSIS installer
-makensis "$BUILDDIR/mpc-qt.nsi"
+if command -v makensis >/dev/null 2>&1; then
+    echo Creating NSIS installer
+    makensis "$BUILDDIR/mpc-qt.nsi"
+else
+    echo "makensis not found, skipping installer"
+fi
