@@ -35,6 +35,19 @@ jobs:
           mingw-w64-clang-aarch64-boost
           mingw-w64-clang-aarch64-mpv
           mingw-w64-clang-aarch64-vulkan-loader
+    - name: Rebuild mpv with OpenGL enabled
+      # MSYS2's ARM64 mpv package is built with -Dgl=disabled, but
+      # mpc-qt draws video through mpv's OpenGL render API.
+      run: |
+        cd "$(cygpath -u "$RUNNER_TEMP")"
+        git clone --depth 1 --filter=blob:none --sparse https://github.com/msys2/MINGW-packages mingw-packages
+        cd mingw-packages
+        git sparse-checkout set mingw-w64-mpv
+        cd mingw-w64-mpv
+        sed -i '/CARCH.*aarch64/,/^  fi$/d' PKGBUILD
+        if grep -q "gl=disabled" PKGBUILD; then echo "failed to patch PKGBUILD"; exit 1; fi
+        MINGW_ARCH=clangarm64 makepkg-mingw --syncdeps --noconfirm --skippgpcheck --nocheck
+        pacman -U --noconfirm mingw-w64-clang-aarch64-mpv-*.pkg.tar.zst
     - name: Avoid line ending issues on Windows
       run: git config --global core.autocrlf input
     - name: Download mpc-qt source
@@ -53,17 +66,6 @@ jobs:
       run: |
         chmod +x scripts/*.sh
         bash scripts/make-release-msys2.sh
-    - name: Diagnose startup crash
-      continue-on-error: true
-      run: |
-        cd mpc-qt-win-arm64
-        export QT_FORCE_STDERR_LOGGING=1
-        export QT_LOGGING_RULES="*.debug=true;qt.*.debug=false"
-        timeout 60 ./mpc-qt.exe > startup.log 2>&1
-        echo "=== exit code: $? ==="
-        cat startup.log
-        echo "=== mpv-only check ==="
-        ls -la libmpv-2.dll
     - name: Upload
       uses: actions/upload-artifact@v7
       with:
