@@ -22,13 +22,22 @@
   ;Make sure text isn't blurry
   ManifestDPIAware true
 
+  ;Target architecture of the packaged build (x64 or arm64), set by CMake
+  !define ARCH "@MPCQT_INSTALLER_ARCH@"
+
   ;Name and file
   Name "MPC-QT"
-  OutFile "mpc-qt-win-x64-installer.exe"
+  OutFile "mpc-qt-win-${ARCH}-installer.exe"
   BrandingText " "
 
   ;Default installation folder
-  InstallDir "$PROGRAMFILES\MPC-QT"
+  ;The installer itself is 32-bit. A native ARM64 build belongs in the
+  ;64-bit Program Files folder rather than Program Files (x86).
+  !if "${ARCH}" == "x64"
+    InstallDir "$PROGRAMFILES\MPC-QT"
+  !else
+    InstallDir "$PROGRAMFILES64\MPC-QT"
+  !endif
 
   ;Get installation folder from registry if available
   InstallDirRegKey HKLM "Software\MPC-QT" ""
@@ -196,7 +205,7 @@ Section "Install"
   RMDir "$INSTDIR\styles"
 
   File "..\LICENSE"
-  File /r "..\mpc-qt-win-x64\*.*"
+  File /r "..\mpc-qt-win-${ARCH}\*.*"
   File /r "..\packaging\nsis\mpc-qt-assoc"
 
   ;Store installation folder
@@ -262,6 +271,16 @@ SectionEnd
 
 Function .onInit
 
+  !if "${ARCH}" != "x64"
+    ;Use the 64-bit registry so the install is recorded where native
+    ;ARM64 programs expect it, and pick up a previous install folder
+    SetRegView 64
+    ReadRegStr $0 HKLM "Software\MPC-QT" ""
+    ${If} $0 != ""
+      StrCpy $INSTDIR $0
+    ${EndIf}
+  !endif
+
   !insertmacro MUI_LANGDLL_DISPLAY
 
 FunctionEnd
@@ -309,6 +328,10 @@ SectionEnd
 ;Uninstaller Functions
 
 Function un.onInit
+
+  !if "${ARCH}" != "x64"
+    SetRegView 64
+  !endif
 
   !insertmacro MUI_UNGETLANGUAGE
 

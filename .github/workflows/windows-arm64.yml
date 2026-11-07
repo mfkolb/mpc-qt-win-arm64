@@ -8,6 +8,9 @@ on:
 env:
   DEVBUILD: continuous
   MPCQT_SUFFIX: win-arm64
+  # NSIS has no ARM64 package in MSYS2; the x64 build runs under emulation
+  # and produces a standard 32-bit installer, which runs fine on ARM64.
+  MAKENSIS: /ucrt64/bin/makensis.exe
 
 jobs:
   build:
@@ -35,6 +38,7 @@ jobs:
           mingw-w64-clang-aarch64-boost
           mingw-w64-clang-aarch64-mpv
           mingw-w64-clang-aarch64-vulkan-loader
+          mingw-w64-ucrt-x86_64-nsis
     - name: Rebuild mpv with OpenGL enabled
       # MSYS2's ARM64 mpv package is built with -Dgl=disabled, but
       # mpc-qt draws video through mpv's OpenGL render API.
@@ -71,3 +75,10 @@ jobs:
       with:
         name: "mpc-qt-win-arm64-${{ env.FORCE_VERSION }}"
         path: mpc-qt-*/
+    - name: Rename installer
+      run: mv build/mpc-qt-win-arm64-installer.exe build/mpc-qt-win-arm64-${{ env.FORCE_VERSION }}-installer.exe
+    - name: Upload installer
+      uses: actions/upload-artifact@v7
+      with:
+        name: "mpc-qt-win-arm64-installer"
+        path: build/mpc-qt-win-arm64-*-installer.exe

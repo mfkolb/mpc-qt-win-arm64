@@ -30,12 +30,14 @@ EXECUTABLE="$BINDIR/mpc-qt.exe"
 MSYS_PREFIX="${MINGW_PREFIX:-/ucrt64}"
 MINGW_BINDIR="$MSYS_PREFIX/bin"
 SUFFIX="${MPCQT_SUFFIX:-win-x64}"
+INSTALLER_ARCH="${SUFFIX#win-}"
+MAKENSIS="${MAKENSIS:-makensis}"
 DEST="mpc-qt-$SUFFIX"
 
 mkdir -p translations/qt
 cp $MSYS_PREFIX/share/qt6/translations/qtbase_*.qm translations/qt
 
-cmake -DMPCQT_VERSION=$VERSION -DMPCQT_VERSION_WIN=$VERSION_WIN -G Ninja -B build
+cmake -DMPCQT_VERSION=$VERSION -DMPCQT_VERSION_WIN=$VERSION_WIN -DMPCQT_INSTALLER_ARCH=$INSTALLER_ARCH -G Ninja -B build
 ninja -C build
 
 if [ ! -f "$EXECUTABLE" ]; then
@@ -124,9 +126,9 @@ echo Extracting QuickJS
 echo Copying QuickJS
 cp "qjs.exe" "$DEST"
 
-if command -v makensis >/dev/null 2>&1; then
+if command -v "$MAKENSIS" >/dev/null 2>&1; then
     echo Creating NSIS installer
-    makensis "$BUILDDIR/mpc-qt.nsi"
+    "$MAKENSIS" "$BUILDDIR/mpc-qt.nsi"
 else
-    echo "makensis not found, skipping installer"
+    echo "$MAKENSIS not found, skipping installer"
 fi
