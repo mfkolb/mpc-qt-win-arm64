@@ -31,12 +31,10 @@
   BrandingText " "
 
   ;Default installation folder
-  ;The installer itself is 32-bit, so $PROGRAMFILES would point to
-  ;Program Files (x86). MPC-QT is a 64-bit program on both x64 and ARM64.
-  InstallDir "$PROGRAMFILES64\MPC-QT"
+  InstallDir "$PROGRAMFILES\MPC-QT"
 
-  ;The installation folder from a previous install is read in .onInit,
-  ;after switching to the 64-bit registry view
+  ;Get installation folder from registry if available
+  InstallDirRegKey HKLM "Software\MPC-QT" ""
 
   ;Request application privileges for Windows Vista
   RequestExecutionLevel admin
@@ -267,16 +265,6 @@ SectionEnd
 
 Function .onInit
 
-  ;Record the install in the 64-bit registry, where Windows expects
-  ;64-bit programs, and reuse the folder of a previous 64-bit install
-  SetRegView 64
-  ReadRegStr $0 HKLM "Software\MPC-QT" ""
-  ${If} $0 != ""
-    StrCpy $INSTDIR $0
-  ${EndIf}
-
-  Call RemoveLegacyInstall
-
   !insertmacro MUI_LANGDLL_DISPLAY
 
 FunctionEnd
@@ -320,49 +308,10 @@ Section "Uninstall"
 
 SectionEnd
 
-;Older installers put MPC-QT in Program Files (x86) and wrote their
-;registry keys to the 32-bit view. Remove such an install first, otherwise
-;there would be two copies, and uninstalling the old one later would remove
-;the Start Menu shortcut and file associations the new one relies on.
-Function RemoveLegacyInstall
-
-  SetRegView 32
-  ReadRegStr $1 HKLM "Software\MPC-QT" ""
-  SetRegView 64
-
-  ${If} $1 == ""
-    Return
-  ${EndIf}
-  ${IfNot} ${FileExists} "$1\Uninstall.exe"
-    Return
-  ${EndIf}
-
-  MessageBox MB_YESNO|MB_ICONQUESTION \
-    "An older installation of MPC-QT was found in:$\r$\n$1$\r$\n$\r$\nIt needs to be removed before installing this version. Your settings will be kept.$\r$\n$\r$\nRemove it now?" \
-    /SD IDYES IDYES remove
-  Abort
-
-  remove:
-  ;_?= runs the old uninstaller in place and waits for it to finish
-  ExecWait '"$1\Uninstall.exe" /S _?=$1' $2
-  ${If} $2 != 0
-    MessageBox MB_OK|MB_ICONSTOP \
-      "The older installation could not be removed. Please uninstall it from Settings > Apps, then run this installer again." \
-      /SD IDOK
-    Abort
-  ${EndIf}
-  ;Running in place leaves the uninstaller and its folder behind
-  Delete "$1\Uninstall.exe"
-  RMDir "$1"
-
-FunctionEnd
-
 ;--------------------------------
 ;Uninstaller Functions
 
 Function un.onInit
-
-  SetRegView 64
 
   !insertmacro MUI_UNGETLANGUAGE
 

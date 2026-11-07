@@ -8,8 +8,9 @@ on:
 env:
   DEVBUILD: continuous
   MPCQT_SUFFIX: win-arm64
-  # NSIS has no ARM64 package in MSYS2; the x64 build runs under emulation
-  # and produces a standard 32-bit installer, which runs fine on ARM64.
+  # MSYS2 has no ARM64 NSIS package. The x64 one runs under emulation on the
+  # ARM runner and produces an x64 installer, which Windows on ARM also runs
+  # under emulation; it installs the native ARM64 files.
   MAKENSIS: /ucrt64/bin/makensis.exe
 
 jobs:
