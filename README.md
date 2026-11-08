@@ -35,7 +35,7 @@ The player's source code is unchanged. The differences are all in how it's built
 - **Development builds:** this fork follows MPC-QT's development branch, not its stable releases.
 - **Some helpers are still x64:** `yt-dlp.exe` (used for YouTube and other web links) and QuickJS are the x64 builds and run under emulation. They only do short bursts of work while a stream loads.
 - **The installer itself is x64:** MSYS2 has no ARM64 build of NSIS, so the installer program runs under emulation. Everything it installs is native ARM64.
-- **Longer build times:** rebuilding mpv adds roughly 15–20 minutes to each ARM64 build. The aim is to get the OpenGL option re-enabled upstream in MSYS2, which would remove that step.
+- **mpv is rebuilt on every build:** this adds only a couple of minutes, but it depends on the layout of MSYS2's mpv recipe. The aim is to get the OpenGL option re-enabled upstream in MSYS2, which would remove the step entirely.
 
 ## Building it yourself
 
