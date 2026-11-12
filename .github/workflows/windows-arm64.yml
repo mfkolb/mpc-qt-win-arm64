@@ -39,6 +39,7 @@ jobs:
           mingw-w64-clang-aarch64-boost
           mingw-w64-clang-aarch64-mpv
           mingw-w64-clang-aarch64-vulkan-loader
+          mingw-w64-clang-aarch64-quickjs
           mingw-w64-ucrt-x86_64-nsis
     - name: Rebuild mpv with OpenGL enabled
       # MSYS2's ARM64 mpv package is built with -Dgl=disabled, but
@@ -62,7 +63,9 @@ jobs:
       with:
         repository: "yt-dlp/yt-dlp"
         latest: true
-        fileName: "yt-dlp.exe"
+        fileName: "yt-dlp_arm64.exe"
+    - name: Use the ARM64 yt-dlp under the usual name
+      run: mv yt-dlp_arm64.exe yt-dlp.exe
     - name: Set version
       run: |
         FORCE_VERSION=$( cat .github/actions/data/VERSION )
@@ -71,6 +74,13 @@ jobs:
       run: |
         chmod +x scripts/*.sh
         bash scripts/make-release-msys2.sh
+    - name: Check that the bundled programs are ARM64
+      run: |
+        cd mpc-qt-win-arm64
+        file mpc-qt.exe yt-dlp.exe qjs.exe
+        for exe in mpc-qt.exe yt-dlp.exe qjs.exe; do
+          if ! file "$exe" | grep -qi aarch64; then echo "$exe is not ARM64"; exit 1; fi
+        done
     - name: Upload
       uses: actions/upload-artifact@v7
       with:
