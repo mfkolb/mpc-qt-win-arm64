@@ -117,14 +117,26 @@ cp $MINGW_BINDIR/libmpv-2.dll "$DEST"
 echo Copying yt-dlp
 cp "yt-dlp.exe" "$DEST"
 
-echo Downloading QuickJS
-LATEST_QUICKJS_VERSION=$(curl -s https://bellard.org/quickjs/binary_releases/ | grep -oP 'quickjs-win-x86_64-\d{4}-\d{2}-\d{2}\.zip' | sort | tail -n 1)
-LATEST_QUICKJS_URL="https://bellard.org/quickjs/binary_releases/$LATEST_QUICKJS_VERSION"
-curl $LATEST_QUICKJS_URL -o quickjs-win-x86_64.zip
-echo Extracting QuickJS
-7z e quickjs-win-x86_64.zip
-echo Copying QuickJS
-cp "qjs.exe" "$DEST"
+if [ -f "$MINGW_BINDIR/qjs.exe" ]; then
+    # Use the MSYS2 quickjs package when it is installed (native for the
+    # target architecture), together with any DLLs it needs
+    echo "Copying QuickJS from $MINGW_BINDIR"
+    cp "$MINGW_BINDIR/qjs.exe" "$DEST"
+    ldd "$MINGW_BINDIR/qjs.exe" | awk '/=>/ {print $3}' | while read -r dep; do
+      if [[ -n "$dep" && "$dep" == "$MINGW_BINDIR"* ]]; then
+        cp -u "$dep" "$DEST"
+      fi
+    done
+else
+    echo Downloading QuickJS
+    LATEST_QUICKJS_VERSION=$(curl -s https://bellard.org/quickjs/binary_releases/ | grep -oP 'quickjs-win-x86_64-\d{4}-\d{2}-\d{2}\.zip' | sort | tail -n 1)
+    LATEST_QUICKJS_URL="https://bellard.org/quickjs/binary_releases/$LATEST_QUICKJS_VERSION"
+    curl $LATEST_QUICKJS_URL -o quickjs-win-x86_64.zip
+    echo Extracting QuickJS
+    7z e quickjs-win-x86_64.zip
+    echo Copying QuickJS
+    cp "qjs.exe" "$DEST"
+fi
 
 if command -v "$MAKENSIS" >/dev/null 2>&1; then
     echo Creating NSIS installer
