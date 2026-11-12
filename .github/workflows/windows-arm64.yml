@@ -79,7 +79,7 @@ jobs:
         cd mpc-qt-win-arm64
         file mpc-qt.exe yt-dlp.exe qjs.exe
         for exe in mpc-qt.exe yt-dlp.exe qjs.exe; do
-          if ! file "$exe" | grep -qi aarch64; then echo "$exe is not ARM64"; exit 1; fi
+          if ! file "$exe" | grep -qiE "arm64|aarch64"; then echo "$exe is not ARM64"; exit 1; fi
         done
     - name: Upload
       uses: actions/upload-artifact@v7
