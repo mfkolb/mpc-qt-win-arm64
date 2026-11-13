@@ -20,7 +20,7 @@ To check that it's running natively, open Task Manager → **Details**, add the 
 ### Requirements
 
 - Windows 11 on an ARM64 device.
-- The **[OpenCL, OpenGL, and Vulkan Compatibility Pack](https://apps.microsoft.com/detail/9nqpsl29bfff)** (free, from the Microsoft Store). Windows on ARM has no native OpenGL driver, and MPC-QT draws video through OpenGL, so without the pack the player exits immediately on launch. Many devices come with it preinstalled. The official x64 MPC-QT has the same requirement on ARM devices.
+- The **[OpenCL, OpenGL, and Vulkan Compatibility Pack](https://apps.microsoft.com/detail/9nqpsl29bfff)** (free, from the Microsoft Store). Windows on ARM has no native OpenGL driver, and MPC-QT draws video through OpenGL, so without the pack the player exits immediately on launch. Many devices come with it preinstalled.
 
 ### Switching from the official x64 version
 
