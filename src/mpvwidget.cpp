@@ -1121,20 +1121,24 @@ static void showOpenGLError(QWidget *parent, const QString &glRenderer,
     box.setText(MpvGlWidget::tr("MPC-QT can't play video because OpenGL isn't available."));
 
 #ifdef Q_OS_WIN
-    bool isArm = Platform::isWindowsOnArm();
-    QString info = isArm
-        ? MpvGlWidget::tr("Windows on ARM devices need Microsoft's free OpenCL, OpenGL, and "
-                          "Vulkan Compatibility Pack for OpenGL. Install it from the "
-                          "Microsoft Store, then start MPC-QT again.")
-        : MpvGlWidget::tr("Your graphics driver doesn't provide a usable version of OpenGL. "
-                          "Installing or updating the graphics driver usually fixes this. "
-                          "On Windows on ARM devices, install Microsoft's free OpenCL, "
-                          "OpenGL, and Vulkan Compatibility Pack from the Microsoft Store.");
-    box.setInformativeText(info + "\n\n" + details);
-    QPushButton *storeButton = box.addButton(
-        MpvGlWidget::tr("Open Microsoft Store"), QMessageBox::AcceptRole);
-    QPushButton *closeButton = box.addButton(QMessageBox::Close);
-    box.setDefaultButton(isArm ? storeButton : closeButton);
+    // The Compatibility Pack only helps on ARM devices, so only offer it there
+    QPushButton *storeButton = nullptr;
+    if (Platform::isWindowsOnArm()) {
+        box.setInformativeText(
+            MpvGlWidget::tr("Windows on ARM devices need Microsoft's free OpenCL, OpenGL, and "
+                            "Vulkan Compatibility Pack for OpenGL. Install it from the "
+                            "Microsoft Store, then start MPC-QT again.") + "\n\n" + details);
+        storeButton = box.addButton(MpvGlWidget::tr("Open Microsoft Store"),
+                                    QMessageBox::AcceptRole);
+        box.addButton(QMessageBox::Close);
+        box.setDefaultButton(storeButton);
+    } else {
+        box.setInformativeText(
+            MpvGlWidget::tr("Your graphics driver doesn't provide a usable version of OpenGL. "
+                            "Installing or updating the graphics driver usually fixes "
+                            "this.") + "\n\n" + details);
+        box.addButton(QMessageBox::Close);
+    }
 #else
     box.setInformativeText(MpvGlWidget::tr("Installing or updating the graphics driver "
                                            "usually fixes this.") + "\n\n" + details);
@@ -1144,7 +1148,7 @@ static void showOpenGLError(QWidget *parent, const QString &glRenderer,
     box.exec();
 
 #ifdef Q_OS_WIN
-    if (box.clickedButton() == storeButton) {
+    if (storeButton && box.clickedButton() == storeButton) {
         // Open the Store app directly, falling back to the Store website
         if (!QDesktopServices::openUrl(QUrl("ms-windows-store://pdp/?ProductId=9NQPSL29BFFF")))
             QDesktopServices::openUrl(QUrl("https://apps.microsoft.com/detail/9nqpsl29bfff"));
