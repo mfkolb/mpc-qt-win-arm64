@@ -17,6 +17,11 @@ The builds are not code-signed, so Windows SmartScreen will warn when you run th
 
 To check that it's running natively, open Task Manager → **Details**, add the **Architecture** column, and look for **ARM64** next to `mpc-qt.exe`.
 
+### Requirements
+
+- Windows 11 on an ARM64 device.
+- The **[OpenCL, OpenGL, and Vulkan Compatibility Pack](https://apps.microsoft.com/detail/9nqpsl29bfff)** (free, from the Microsoft Store). Windows on ARM has no native OpenGL driver, and MPC-QT draws video through OpenGL, so without the pack the player exits immediately on launch. Many devices come with it preinstalled. The official x64 MPC-QT has the same requirement on ARM devices.
+
 ### Switching from the official x64 version
 
 The ARM64 installer uses the same install folder and registry entries as the official x64 installer. Installing one over the other replaces it in place, so you won't end up with two copies. Close MPC-QT before installing. Your settings are kept, because they're stored in your user profile rather than the install folder.
@@ -35,7 +40,7 @@ The player's source code is unchanged. The differences are all in how it's built
 - **Unsigned:** see the SmartScreen note above.
 - **Development builds:** this fork follows MPC-QT's development branch, not its stable releases.
 - **The installer itself is x64:** MSYS2 has no ARM64 build of NSIS, so the installer program runs under emulation. Everything it installs is native ARM64.
-- **mpv is rebuilt on every build:** this adds only a couple of minutes, but it depends on the layout of MSYS2's mpv recipe. The aim is to get the OpenGL option re-enabled upstream in MSYS2, which would remove the step entirely.
+- **mpv is rebuilt on every build:** this adds only a couple of minutes, but it depends on the layout of MSYS2's mpv recipe. The OpenGL option has been re-enabled upstream ([msys2/MINGW-packages#33484](https://github.com/msys2/MINGW-packages/pull/33484)), so this step will be removed once MSYS2 publishes the updated mpv package.
 
 ## Building it yourself
 
