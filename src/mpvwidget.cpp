@@ -8,6 +8,12 @@
 #include <QThread>
 #include <QTimer>
 #include <QOpenGLContext>
+#include <QOpenGLFunctions>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QDesktopServices>
+#include <QSysInfo>
+#include <QUrl>
 #include <QMouseEvent>
 #include <QMetaObject>
 #include <QDir>
@@ -1098,6 +1104,73 @@ void MpvGlWidget::setDrawLogo(bool yes)
     update();
 }
 
+// Called when mpv can't create its OpenGL renderer, which otherwise ends the
+// program without explanation. The usual cause is that only Windows' built-in
+// OpenGL 1.1 fallback is available, e.g. on Windows on ARM devices without
+// Microsoft's OpenCL, OpenGL, and Vulkan Compatibility Pack.
+static void showOpenGLErrorAndExit(QWidget *parent, QOpenGLContext *context)
+{
+    QString glVendor, glRenderer, glVersion;
+    if (context) {
+        QOpenGLFunctions *f = context->functions();
+        auto str = [f](GLenum name) {
+            const GLubyte *value = f->glGetString(name);
+            return value ? QString::fromLatin1(reinterpret_cast<const char *>(value))
+                         : QString("unknown");
+        };
+        glVendor = str(GL_VENDOR);
+        glRenderer = str(GL_RENDERER);
+        glVersion = str(GL_VERSION);
+    }
+    Logger::log("glwidget", QString("Could not create the mpv OpenGL render context "
+                                   "(OpenGL vendor: %1, renderer: %2, version: %3)")
+                               .arg(glVendor, glRenderer, glVersion));
+
+    QString details = MpvGlWidget::tr("OpenGL renderer: %1\nOpenGL version: %2")
+                          .arg(glRenderer, glVersion);
+    QMessageBox box(parent);
+    box.setIcon(QMessageBox::Critical);
+    box.setWindowTitle(MpvGlWidget::tr("MPC-QT"));
+    box.setText(MpvGlWidget::tr("MPC-QT can't play video because OpenGL isn't available."));
+
+#ifdef Q_OS_WIN
+    bool isArm = QSysInfo::currentCpuArchitecture().startsWith("arm");
+    QString info = isArm
+        ? MpvGlWidget::tr("Windows on ARM devices need Microsoft's free OpenCL, OpenGL, and "
+                          "Vulkan Compatibility Pack for OpenGL. Install it from the "
+                          "Microsoft Store, then start MPC-QT again.")
+        : MpvGlWidget::tr("Your graphics driver doesn't provide a usable version of OpenGL. "
+                          "Installing or updating the graphics driver usually fixes this. "
+                          "On Windows on ARM devices, install Microsoft's free OpenCL, "
+                          "OpenGL, and Vulkan Compatibility Pack from the Microsoft Store.");
+    box.setInformativeText(info + "\n\n" + details);
+    QPushButton *storeButton = box.addButton(
+        MpvGlWidget::tr("Open Microsoft Store"), QMessageBox::AcceptRole);
+    QPushButton *closeButton = box.addButton(QMessageBox::Close);
+    box.setDefaultButton(isArm ? storeButton : closeButton);
+#else
+    box.setInformativeText(MpvGlWidget::tr("Installing or updating the graphics driver "
+                                           "usually fixes this.") + "\n\n" + details);
+    box.addButton(QMessageBox::Close);
+#endif
+
+    box.exec();
+
+#ifdef Q_OS_WIN
+    if (box.clickedButton() == storeButton) {
+        // Open the Store app directly, falling back to the Store website
+        if (!QDesktopServices::openUrl(QUrl("ms-windows-store://pdp/?ProductId=9NQPSL29BFFF")))
+            QDesktopServices::openUrl(QUrl("https://apps.microsoft.com/detail/9nqpsl29bfff"));
+    }
+#endif
+
+    auto logger = Logger::singleton();
+    QMetaObject::invokeMethod(logger, [logger]() {
+        logger->flushMessages();
+    }, Qt::BlockingQueuedConnection);
+    std::exit(EXIT_FAILURE);
+}
+
 void MpvGlWidget::initializeGL()
 {
     if (!logo)
@@ -1136,7 +1209,11 @@ void MpvGlWidget::initializeGL()
         Logger::log(logModule, "unknown display mode (eglfs et al)");
     }
 
-    render = ctrl->createRenderContext(params);
+    try {
+        render = ctrl->createRenderContext(params);
+    } catch (const std::runtime_error &) {
+        showOpenGLErrorAndExit(window(), context());
+    }
     mpv_render_context_set_update_callback(render, MpvGlWidget::render_update, this);
 }
 
