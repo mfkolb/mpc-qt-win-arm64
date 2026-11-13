@@ -1,6 +1,7 @@
 #include <QObject>
 #include <QProcess>
 #include <QApplication>
+#include <QSysInfo>
 #include "logger.h"
 #include "unify.h"
 
@@ -82,6 +83,29 @@ ScreenSaver *Platform::screenSaver()
         });
     }
     return ss;
+}
+
+bool Platform::isWindowsOnArm()
+{
+#if defined(Q_OS_WIN)
+    // An x64 build running under emulation on an ARM device is told it's on
+    // an x64 CPU by GetNativeSystemInfo, which QSysInfo uses. IsWow64Process2
+    // reports the real host architecture (Windows 10 1709 and later), so look
+    // it up at runtime and fall back to QSysInfo if it's missing.
+    using IsWow64Process2Fn = BOOL (WINAPI *)(HANDLE, USHORT *, USHORT *);
+    auto isWow64Process2 = reinterpret_cast<IsWow64Process2Fn>(reinterpret_cast<void *>(
+        GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "IsWow64Process2")));
+    if (isWow64Process2) {
+        USHORT processMachine = 0;
+        USHORT nativeMachine = 0;
+        if (isWow64Process2(GetCurrentProcess(), &processMachine, &nativeMachine))
+            return nativeMachine == IMAGE_FILE_MACHINE_ARM64
+                || nativeMachine == IMAGE_FILE_MACHINE_ARMNT;
+    }
+    return QSysInfo::currentCpuArchitecture().startsWith("arm");
+#else
+    return false;
+#endif
 }
 
 QString Platform::resourcesPath()

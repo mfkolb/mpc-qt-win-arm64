@@ -12,7 +12,6 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QDesktopServices>
-#include <QSysInfo>
 #include <QUrl>
 #include <QMouseEvent>
 #include <QMetaObject>
@@ -25,6 +24,7 @@
 #include "mpvwidget.h"
 #include "widgets/logowidget.h"
 #include "storage.h"
+#include "platform/unify.h"
 
 #ifndef Q_PROCESSOR_ARM
     #ifndef GLAPIENTRY
@@ -1134,7 +1134,7 @@ static void showOpenGLErrorAndExit(QWidget *parent, QOpenGLContext *context)
     box.setText(MpvGlWidget::tr("MPC-QT can't play video because OpenGL isn't available."));
 
 #ifdef Q_OS_WIN
-    bool isArm = QSysInfo::currentCpuArchitecture().startsWith("arm");
+    bool isArm = Platform::isWindowsOnArm();
     QString info = isArm
         ? MpvGlWidget::tr("Windows on ARM devices need Microsoft's free OpenCL, OpenGL, and "
                           "Vulkan Compatibility Pack for OpenGL. Install it from the "
