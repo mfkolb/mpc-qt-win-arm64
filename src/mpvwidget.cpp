@@ -9,6 +9,8 @@
 #include <QTimer>
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
+#include <QOffscreenSurface>
+#include <QSurfaceFormat>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QDesktopServices>
@@ -1104,28 +1106,13 @@ void MpvGlWidget::setDrawLogo(bool yes)
     update();
 }
 
-// Called when mpv can't create its OpenGL renderer, which otherwise ends the
-// program without explanation. The usual cause is that only Windows' built-in
-// OpenGL 1.1 fallback is available, e.g. on Windows on ARM devices without
-// Microsoft's OpenCL, OpenGL, and Vulkan Compatibility Pack.
-static void showOpenGLErrorAndExit(QWidget *parent, QOpenGLContext *context)
+// Explains that OpenGL isn't usable, which otherwise leaves an empty window or
+// ends the program without explanation. The usual cause is that only Windows'
+// built-in OpenGL 1.1 fallback is available, e.g. on Windows on ARM devices
+// without Microsoft's OpenCL, OpenGL, and Vulkan Compatibility Pack.
+static void showOpenGLError(QWidget *parent, const QString &glRenderer,
+                            const QString &glVersion)
 {
-    QString glVendor, glRenderer, glVersion;
-    if (context) {
-        QOpenGLFunctions *f = context->functions();
-        auto str = [f](GLenum name) {
-            const GLubyte *value = f->glGetString(name);
-            return value ? QString::fromLatin1(reinterpret_cast<const char *>(value))
-                         : QString("unknown");
-        };
-        glVendor = str(GL_VENDOR);
-        glRenderer = str(GL_RENDERER);
-        glVersion = str(GL_VERSION);
-    }
-    Logger::log("glwidget", QString("Could not create the mpv OpenGL render context "
-                                   "(OpenGL vendor: %1, renderer: %2, version: %3)")
-                               .arg(glVendor, glRenderer, glVersion));
-
     QString details = MpvGlWidget::tr("OpenGL renderer: %1\nOpenGL version: %2")
                           .arg(glRenderer, glVersion);
     QMessageBox box(parent);
@@ -1163,12 +1150,45 @@ static void showOpenGLErrorAndExit(QWidget *parent, QOpenGLContext *context)
             QDesktopServices::openUrl(QUrl("https://apps.microsoft.com/detail/9nqpsl29bfff"));
     }
 #endif
+}
 
-    auto logger = Logger::singleton();
-    QMetaObject::invokeMethod(logger, [logger]() {
-        logger->flushMessages();
-    }, Qt::BlockingQueuedConnection);
-    std::exit(EXIT_FAILURE);
+static QString glString(QOpenGLContext *context, GLenum name)
+{
+    const GLubyte *value = context->functions()->glGetString(name);
+    return value ? QString::fromLatin1(reinterpret_cast<const char *>(value))
+                 : QString("unknown");
+}
+
+bool MpvGlWidget::checkOpenGL()
+{
+    // Without a usable OpenGL driver, Qt can't create a context for the video
+    // widget and the main window stays blank, so check before creating it.
+    // mpv needs OpenGL 2.1 or OpenGL ES 2.0.
+    QOffscreenSurface surface;
+    surface.create();
+    QOpenGLContext context;
+    if (!context.create() || !context.makeCurrent(&surface)) {
+        Logger::log("glwidget", "Could not create an OpenGL context");
+        showOpenGLError(nullptr, tr("none"), tr("none"));
+        return false;
+    }
+
+    QString renderer = glString(&context, GL_RENDERER);
+    QString version = glString(&context, GL_VERSION);
+    Logger::log("glwidget", QString("OpenGL vendor: %1, renderer: %2, version: %3")
+                                .arg(glString(&context, GL_VENDOR), renderer, version));
+
+    QSurfaceFormat format = context.format();
+    bool usable = context.isOpenGLES()
+        ? format.majorVersion() >= 2
+        : format.version() >= qMakePair(2, 1);
+    context.doneCurrent();
+    if (!usable) {
+        Logger::log("glwidget", "OpenGL version is too old for mpv");
+        showOpenGLError(nullptr, renderer, version);
+        return false;
+    }
+    return true;
 }
 
 void MpvGlWidget::initializeGL()
@@ -1212,7 +1232,17 @@ void MpvGlWidget::initializeGL()
     try {
         render = ctrl->createRenderContext(params);
     } catch (const std::runtime_error &) {
-        showOpenGLErrorAndExit(window(), context());
+        // checkOpenGL() passed at startup, but mpv still couldn't use it
+        QString renderer = glString(context(), GL_RENDERER);
+        QString version = glString(context(), GL_VERSION);
+        Logger::log(logModule, QString("Could not create the mpv OpenGL render context "
+                                       "(renderer: %1, version: %2)").arg(renderer, version));
+        showOpenGLError(window(), renderer, version);
+        auto logger = Logger::singleton();
+        QMetaObject::invokeMethod(logger, [logger]() {
+            logger->flushMessages();
+        }, Qt::BlockingQueuedConnection);
+        std::exit(EXIT_FAILURE);
     }
     mpv_render_context_set_update_callback(render, MpvGlWidget::render_update, this);
 }

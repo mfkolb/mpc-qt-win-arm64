@@ -100,6 +100,8 @@ int main(int argc, char *argv[])
     f.detectMode();
     if (f.earlyQuit())
         return 0;
+    if (!MpvGlWidget::checkOpenGL())
+        return EXIT_FAILURE;
     f.init();
     try {
         return f.run();

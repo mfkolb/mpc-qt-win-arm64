@@ -261,6 +261,9 @@ public:
     explicit MpvGlWidget(MpvObject *object, QWidget *parent = nullptr);
     ~MpvGlWidget();
 
+    // Returns false, after telling the user why, if OpenGL isn't usable.
+    static bool checkOpenGL();
+
     QWidget *self() override;
     void initMpv() override;
     void setLogoUrl(const QString &filename) override;
