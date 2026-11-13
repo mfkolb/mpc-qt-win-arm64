@@ -100,7 +100,9 @@ int main(int argc, char *argv[])
     f.detectMode();
     if (f.earlyQuit())
         return 0;
-    if (!MpvGlWidget::checkOpenGL())
+    // Only checked on Windows for now, where a missing OpenGL driver is a known
+    // problem (e.g. Windows on ARM without the Compatibility Pack).
+    if (Platform::isWindows && !MpvGlWidget::checkOpenGL())
         return EXIT_FAILURE;
     f.init();
     try {
