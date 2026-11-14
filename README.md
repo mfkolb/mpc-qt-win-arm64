@@ -31,7 +31,7 @@ The ARM64 installer uses the same install folder and registry entries as the off
 The player's source code is unchanged. The differences are all in how it's built:
 
 - **A separate ARM64 workflow** ([`windows-arm64.yml`](.github/workflows/windows-arm64.yml)) builds on GitHub's Windows ARM runners using MSYS2's `clangarm64` toolchain.
-- **mpv is rebuilt with OpenGL enabled.** MSYS2's ARM64 mpv package is built with `-Dgl=disabled`. MPC-QT draws video through mpv's OpenGL render API, so with that package the player exits on launch with `Could not create render context`. The workflow rebuilds mpv from MSYS2's own recipe without that option.
+- **mpv needs OpenGL.** MPC-QT draws video through mpv's OpenGL render API, but MSYS2's ARM64 mpv package used to be built without OpenGL, so the player exited on launch with `Could not create render context`. That was fixed upstream in MSYS2 ([msys2/MINGW-packages#33484](https://github.com/msys2/MINGW-packages/pull/33484), mpv 0.42.0-2), and the workflow now checks that the installed mpv has OpenGL support.
 - **The bundled helpers are ARM64 too.** `yt-dlp.exe` (used for YouTube and other web links) is yt-dlp's official ARM64 release, and QuickJS, which yt-dlp uses for YouTube, comes from MSYS2's ARM64 package. Everything in the package runs without emulation.
 - **The release and installer scripts are not tied to x64.** [`make-release-msys2.sh`](scripts/make-release-msys2.sh) and the NSIS installer take their architecture from the build instead of hardcoding x64. The official x64 build is unaffected.
 
@@ -40,7 +40,6 @@ The player's source code is unchanged. The differences are all in how it's built
 - **Unsigned:** see the SmartScreen note above.
 - **Development builds:** this fork follows MPC-QT's development branch, not its stable releases.
 - **The installer itself is x64:** MSYS2 has no ARM64 build of NSIS, so the installer program runs under emulation. Everything it installs is native ARM64.
-- **mpv is rebuilt on every build:** this adds only a couple of minutes, but it depends on the layout of MSYS2's mpv recipe. The OpenGL option has been re-enabled upstream ([msys2/MINGW-packages#33484](https://github.com/msys2/MINGW-packages/pull/33484)), so this step will be removed once MSYS2 publishes the updated mpv package.
 
 ## Building it yourself
 
