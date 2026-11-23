@@ -1,3 +1,5 @@
+### These MPC QT ARM builds are now merged into the main project. [Go check it out!](https://mpc-qt.github.io/downloads#dev-builds)
+
 # MPC-QT for Windows on ARM
 
 Unofficial port of [MPC-QT](https://github.com/mpc-qt/mpc-qt) to Windows on ARM devices.
